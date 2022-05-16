@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Post = require('../models/Post');
 
 exports.mustBeLoggedIn = function (req, res, next) {
 	if (req.session.user) {
@@ -16,7 +17,11 @@ exports.login = function (req, res) {
 	user
 		.login()
 		.then(function (result) {
-			req.session.user = { avatar: user.avatar, username: user.data.username };
+			req.session.user = {
+				avatar: user.avatar,
+				username: user.data.username,
+				_id: user.data._id,
+			};
 			req.session.save(function () {
 				res.redirect('/');
 			});
@@ -40,7 +45,11 @@ exports.register = function (req, res) {
 	user
 		.register()
 		.then(() => {
-			req.session.user = { username: user.data.username, avatar: user.avatar };
+			req.session.user = {
+				username: user.data.username,
+				avatar: user.avatar,
+				_id: user.data._id,
+			};
 			req.session.save(function () {
 				res.redirect('/');
 			});
@@ -57,14 +66,37 @@ exports.register = function (req, res) {
 
 exports.home = function (req, res) {
 	if (req.session.user) {
-		res.render('home-dashboard', {
-			username: req.session.user.username,
-			avatar: req.session.user.avatar,
-		});
+		res.render('home-dashboard');
 	} else {
 		res.render('home-guest', {
 			errors: req.flash('errors'),
 			regErrors: req.flash('regErrors'),
 		});
 	}
+};
+
+exports.ifUserExists = function (req, res, next) {
+	User.findByUsername(req.params.username)
+		.then(function (userDocument) {
+			req.profileUser = userDocument;
+			next();
+		})
+		.catch(function () {
+			res.render('404');
+		});
+};
+
+exports.profilePostsScreen = function (req, res) {
+	// Ask our post model for posts by a certain author id
+	Post.findByAuthorId(req.profileUser._id)
+		.then(function (posts) {
+			res.render('profile', {
+				posts: posts,
+				profileUsername: req.profileUser.username,
+				profileAvatar: req.profileUser.avatar,
+			});
+		})
+		.catch(function () {
+			res.render('404');
+		});
 };
